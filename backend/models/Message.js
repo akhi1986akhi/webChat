@@ -2,37 +2,40 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
   sender: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  senderEmail: {
     type: String,
     required: true,
+  },
+  receiver: {
+    type: String,
   },
   content: {
     type: String,
-    required: [true, 'Message content is required'],
-    trim: true,
+    required: true,
   },
   timestamp: {
     type: Date,
     default: Date.now,
   },
-  type: {
-    type: String,
-    enum: ['text', 'image', 'file'],
-    default: 'text',
+  isFromAdmin: {
+    type: Boolean,
+    default: false,
   },
-  room: {
-    type: String,
-    default: 'general',
-  },
+  isRead: {
+    type: Boolean,
+    default: false,
+  }
 });
 
-// Index for faster queries
+// Keep only essential indexes
 messageSchema.index({ timestamp: -1 });
 messageSchema.index({ sender: 1, timestamp: -1 });
-messageSchema.index({ room: 1, timestamp: -1 });
+
+// Virtual for formatted time (optional, keep if needed)
+messageSchema.virtual('formattedTime').get(function() {
+  return this.timestamp.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+});
 
 module.exports = mongoose.model('Message', messageSchema);

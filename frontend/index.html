@@ -4,8 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Application Test Client</title>
+    <title>Support Chat</title>
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --background: #0f172a;
+            --surface: #1e293b;
+            --surface-light: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,614 +29,694 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--background) 0%, #1a1f35 100%);
             min-height: 100vh;
             padding: 20px;
+            color: var(--text);
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 20px;
         }
 
-        .panel {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.6s ease;
         }
 
-        .user-panel {
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .chat-container {
+            background: var(--surface);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px var(--shadow);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            animation: fadeInUp 0.6s ease;
+        }
+
+        .status-bar {
+            background: linear-gradient(135deg, var(--surface-light), var(--surface));
+            padding: 16px 24px;
             display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .chat-panel {
-            display: flex;
-            flex-direction: column;
-        }
-
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-            font-weight: 500;
-        }
-
-        input,
-        textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-
-        input:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
         }
 
         .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pulse-dot {
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            margin-right: 8px;
+            position: relative;
         }
 
-        .connected {
-            background-color: #4CAF50;
+        .pulse-dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse 2s infinite;
         }
 
-        .disconnected {
-            background-color: #f44336;
+        .pulse-dot.offline {
+            background: var(--danger);
         }
 
-        #messages {
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        .status-text {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .admin-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--surface);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+
+        .admin-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .admin-dot.online {
+            background: var(--success);
+        }
+
+        .controls-section {
+            padding: 20px 24px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        input[type="text"] {
             flex: 1;
-            height: 400px;
+            padding: 12px 16px;
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #059669);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .messages-container {
+            height: 450px;
             overflow-y: auto;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            background: #f9f9f9;
+            padding: 24px;
+            background: linear-gradient(180deg, var(--surface) 0%, var(--background) 100%);
+        }
+
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: var(--surface);
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: var(--surface-light);
+            border-radius: 4px;
         }
 
         .message {
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            border-radius: 10px;
-            max-width: 70%;
-            word-wrap: break-word;
+            margin-bottom: 16px;
+            animation: messageSlide 0.3s ease;
+            max-width: 75%;
         }
 
-        .message.sent {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
             margin-left: auto;
         }
 
-        .message.received {
-            background: #e9ecef;
-            color: #333;
+        .message.admin {
             margin-right: auto;
         }
 
+        .message-bubble {
+            padding: 14px 18px;
+            border-radius: 18px;
+            position: relative;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.admin .message-bubble {
+            background: var(--surface-light);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+
         .message-header {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-bottom: 5px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            opacity: 0.9;
+        }
+
+        .message-text {
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            margin-top: 6px;
+            text-align: right;
+        }
+
+        .notification {
+            text-align: center;
+            padding: 10px 16px;
+            margin: 12px auto;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            max-width: 80%;
         }
 
         .typing-indicator {
-            color: #666;
+            display: none;
+            padding: 0 24px 12px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
             font-style: italic;
-            padding: 5px;
-            font-size: 14px;
+            animation: fadeIn 0.3s ease;
         }
 
-        .status-update {
-            text-align: center;
-            color: #666;
-            font-size: 12px;
-            margin: 5px 0;
-            padding: 5px;
-            background: #f5f5f5;
-            border-radius: 5px;
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 8px;
         }
 
-        .users-list {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typingDot 1.4s infinite;
         }
 
-        .user-item {
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingDot {
+
+            0%,
+            60%,
+            100% {
+                opacity: 0.3;
+                transform: translateY(0);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateY(-6px);
+            }
+        }
+
+        .input-section {
+            padding: 20px 24px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+
+        .message-input-group {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            border-bottom: 1px solid #f0f0f0;
+            gap: 12px;
+            align-items: flex-end;
         }
 
-        .user-name {
-            font-weight: 500;
-        }
-
-        .user-status {
-            font-size: 12px;
-            padding: 3px 8px;
+        textarea {
+            flex: 1;
+            padding: 14px 18px;
+            background: var(--surface-light);
+            border: 1px solid var(--border);
             border-radius: 12px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            resize: none;
+            transition: all 0.3s ease;
+            min-height: 50px;
+            max-height: 120px;
         }
 
-        .online {
-            background: #e8f5e9;
-            color: #2e7d32;
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        .offline {
-            background: #ffebee;
-            color: #c62828;
+        textarea::-webkit-scrollbar {
+            width: 6px;
         }
 
-        .log {
-            font-family: 'Courier New', monospace;
-            background: #1a1a1a;
-            color: #00ff00;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            height: 100px;
-            overflow-y: auto;
-            margin-top: 10px;
+        textarea::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .messages-container {
+                height: 350px;
+            }
         }
     </style>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
 </head>
 
 <body>
     <div class="container">
-        <!-- Left Panel: User Management -->
-        <div class="panel user-panel">
-            <h2>👤 User Management</h2>
-
-            <div class="form-group">
-                <label>Full Name</label>
-                <input type="text" id="fullName" placeholder="Enter your full name">
-            </div>
-
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="email" placeholder="Enter your email">
-            </div>
-
-            <div class="form-group">
-                <label>Contact</label>
-                <input type="text" id="contact" placeholder="Enter contact number">
-            </div>
-
-            <button id="registerBtn" onclick="registerUser()">Register User</button>
-
-            <div class="form-group">
-                <label>Connection Status:</label>
-                <div>
-                    <span class="status-indicator disconnected" id="statusDot"></span>
-                    <span id="statusText">Disconnected</span>
-                </div>
-            </div>
-
-            <button id="connectBtn" onclick="connectWebSocket()">Connect to Chat</button>
-            <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>Disconnect</button>
-
-            <div class="users-list">
-                <h3>📋 Registered Users</h3>
-                <div id="usersList"></div>
-            </div>
-
-            <div class="log">
-                <h3>📝 Event Log</h3>
-                <div id="eventLog"></div>
-            </div>
+        <div class="header">
+            <h1>💬 Support Chat</h1>
+            <p>Connect with our support team in real-time</p>
         </div>
 
-        <!-- Right Panel: Chat Interface -->
-        <div class="panel chat-panel">
-            <h2>💬 Chat Room: <span id="roomName">general</span></h2>
-
-            <div id="messages">
-                <div class="status-update">Welcome to the chat!</div>
-            </div>
-
-            <div class="typing-indicator" id="typingIndicator" style="display: none;">
-                Someone is typing...
-            </div>
-
-            <div class="form-group">
-                <textarea id="messageInput" placeholder="Type your message here..." rows="3"
-                    onkeydown="handleTyping(event)" onkeyup="stopTypingIndicator()"></textarea>
-            </div>
-
-            <button onclick="sendMessage()" id="sendBtn" disabled>Send Message</button>
-
-            <div class="form-group">
-                <label>Join Different Room:</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="roomInput" placeholder="room name">
-                    <button onclick="joinRoom()">Join Room</button>
+        <div class="chat-container">
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="pulse-dot offline" id="statusDot"></div>
+                    <span class="status-text" id="statusText">Disconnected</span>
+                </div>
+                <div class="admin-badge">
+                    <div class="admin-dot" id="adminDot"></div>
+                    <span id="adminStatus">Admin Offline</span>
                 </div>
             </div>
 
-            <div>
-                <button onclick="getMessages()">Load Messages</button>
-                <button onclick="getUsers()">Refresh Users</button>
-                <button onclick="clearChat()">Clear Chat</button>
+            <div class="controls-section">
+                <div class="input-group">
+                    <input type="text" id="userName" placeholder="Enter your name" value="Customer">
+                </div>
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="connect()" id="connectBtn">
+                        <span>🔗</span> Connect
+                    </button>
+                    <button class="btn-danger" onclick="disconnect()" id="disconnectBtn" disabled>
+                        <span>🔌</span> Disconnect
+                    </button>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages">
+                <div class="notification">👋 Connect to start chatting with our support team</div>
+            </div>
+
+            <div class="typing-indicator" id="typingIndicator">
+                Admin is typing
+                <span class="typing-dots">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            </div>
+
+            <div class="input-section">
+                <div class="message-input-group">
+                    <textarea id="messageInput" placeholder="Type your message here..." rows="1" disabled></textarea>
+                    <button class="btn-success" onclick="sendMessage()" id="sendBtn" disabled>
+                        <span>📤</span> Send
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Global variables
         let socket = null;
-        let currentUser = null;
-        let typingTimeout = null;
+        let userName = "Customer";
 
         // DOM Elements
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const connectBtn = document.getElementById('connectBtn');
-        const disconnectBtn = document.getElementById('disconnectBtn');
-        const sendBtn = document.getElementById('sendBtn');
-        const messagesDiv = document.getElementById('messages');
-        const typingIndicator = document.getElementById('typingIndicator');
-        const usersList = document.getElementById('usersList');
-        const eventLog = document.getElementById('eventLog');
+        const elements = {
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            adminStatus: document.getElementById('adminStatus'),
+            adminDot: document.getElementById('adminDot'),
+            messagesDiv: document.getElementById('messages'),
+            typingIndicator: document.getElementById('typingIndicator'),
+            connectBtn: document.getElementById('connectBtn'),
+            disconnectBtn: document.getElementById('disconnectBtn'),
+            sendBtn: document.getElementById('sendBtn'),
+            messageInput: document.getElementById('messageInput'),
+            userName: document.getElementById('userName')
+        };
 
-        // Log events
-        function logEvent(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logEntry = `[${timestamp}] ${message}`;
-            eventLog.innerHTML = logEntry + '<br>' + eventLog.innerHTML;
-            console.log(logEntry);
-        }
-
-        // Update connection status
-        function updateStatus(connected) {
-            statusDot.className = `status-indicator ${connected ? 'connected' : 'disconnected'}`;
-            statusText.textContent = connected ? 'Connected' : 'Disconnected';
-            connectBtn.disabled = connected;
-            disconnectBtn.disabled = !connected;
-            sendBtn.disabled = !connected || !currentUser;
-
-            if (connected) {
-                logEvent('WebSocket connected successfully');
-            } else {
-                logEvent('WebSocket disconnected');
-            }
-        }
-
-        // Register user via REST API
-        async function registerUser() {
-            const fullName = document.getElementById('fullName').value;
-            const email = document.getElementById('email').value;
-            const contact = document.getElementById('contact').value;
-
-            if (!fullName || !email || !contact) {
-                alert('Please fill in all fields');
-                return;
-            }
-
-            try {
-                logEvent('Registering user...');
-                const response = await fetch('http://localhost:5000/api/auth/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        fullName,
-                        email,
-                        contact
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    currentUser = data.user;
-                    logEvent(`User registered: ${currentUser.fullName} (ID: ${currentUser.id})`);
-                    alert('Registration successful!');
-
-                    // Update send button status
-                    sendBtn.disabled = !socket || !socket.connected;
-
-                    // Load users list
-                    getUsers();
-                } else {
-                    logEvent(`Registration failed: ${data.message}`);
-                    alert(`Registration failed: ${data.message}`);
-                }
-            } catch (error) {
-                logEvent(`Registration error: ${error.message}`);
-                alert('Registration failed. Check console for details.');
-            }
-        }
-
-        // Connect to WebSocket
-        function connectWebSocket() {
-            if (!currentUser) {
-                alert('Please register first');
-                return;
-            }
-
-            logEvent('Connecting to Socket.IO...');
+        // Connect to chat
+        function connect() {
+            userName = elements.userName.value || "Customer";
 
             socket = io('http://localhost:5000', {
                 transports: ['websocket']
             });
 
-            socket.on('connect', () => {
-                logEvent('Socket.IO connected: ' + socket.id);
-                updateStatus(true);
-
-                // REGISTER USER
-                socket.emit('register', {
-                    userId: currentUser.id
-                });
-
-                // JOIN DEFAULT ROOM
-                socket.emit('join_room', 'general');
-            });
-
-            socket.on('receive_message', (data) => {
-                displayMessage(data.message, false);
-                logEvent(`Message received`);
-            });
-
-            socket.on('user_online', (data) => {
-                addUserStatusUpdate(`User ${data.userId} came online`);
-            });
-
-            socket.on('user_offline', (data) => {
-                addUserStatusUpdate(`User ${data.userId} went offline`);
-            });
-
-            socket.on('user_typing', (data) => {
-                showTypingIndicator(data.userId, data.isTyping);
-            });
-
-            socket.on('disconnect', () => {
-                logEvent('Socket disconnected');
-                updateStatus(false);
-            });
-
-            socket.on('connect_error', (err) => {
-                console.error(err);
-                logEvent('Connection error: ' + err.message);
-                updateStatus(false);
-            });
+            // Socket event handlers
+            socket.on('connect', handleConnect);
+            socket.on('connected', handleConnected);
+            socket.on('admin_reply', handleAdminReply);
+            socket.on('admin_status', handleAdminStatus);
+            socket.on('disconnect', handleDisconnect);
+            socket.on('connect_error', handleConnectionError);
         }
 
-        // Disconnect WebSocket
-        function disconnectWebSocket() {
+        function handleConnect() {
+            updateStatus(true);
+            socket.emit('user_connect', { name: userName });
+            addNotification('✅ Connected to support');
+        }
+
+        function handleConnected(data) {
+            addNotification(data.message);
+        }
+
+        function handleAdminReply(data) {
+            addMessage(data.message, 'admin');
+        }
+
+        function handleAdminStatus(data) {
+            console.log(data);
+            const status = data.online ? 'Online' : 'Offline';
+            elements.adminStatus.textContent = `Admin ${status}`;
+            elements.adminDot.className = `admin-dot ${data.online ? 'online' : ''}`;
+
+            if (!data.online) {
+                addNotification('⚠️ Admin is currently offline');
+            }
+        }
+
+        function handleDisconnect() {
+            updateStatus(false);
+            addNotification('❌ Disconnected from server');
+        }
+
+        function handleConnectionError(err) {
+            console.error('Connection error:', err);
+            addNotification('⚠️ Connection failed. Please try again.');
+            updateStatus(false);
+        }
+
+        // Disconnect from chat
+        function disconnect() {
             if (socket) {
-                socket.close();
+                socket.disconnect();
                 socket = null;
             }
             updateStatus(false);
+            addNotification('👋 Disconnected');
         }
 
         // Send message
         function sendMessage() {
-            if (!socket || !currentUser) return;
+            const message = elements.messageInput.value.trim();
 
-            const messageInput = document.getElementById('messageInput');
-            const content = messageInput.value.trim();
-            if (!content) return;
+            if (!message) return;
 
-            socket.emit('send_message', {
-                userId: currentUser.id,
-                content,
-                room: 'general'
+            socket.emit('user_message', { message: message });
+            addMessage(message, 'user');
+            elements.messageInput.value = '';
+            elements.messageInput.style.height = 'auto';
+        }
+
+        // Update connection status
+        function updateStatus(connected) {
+            if (connected) {
+                elements.statusDot.className = 'pulse-dot online';
+                elements.statusText.textContent = 'Connected';
+                elements.connectBtn.disabled = true;
+                elements.disconnectBtn.disabled = false;
+                elements.sendBtn.disabled = false;
+                elements.messageInput.disabled = false;
+            } else {
+                elements.statusDot.className = 'pulse-dot offline';
+                elements.statusText.textContent = 'Disconnected';
+                elements.connectBtn.disabled = false;
+                elements.disconnectBtn.disabled = true;
+                elements.sendBtn.disabled = true;
+                elements.messageInput.disabled = true;
+                elements.adminDot.className = 'admin-dot';
+                elements.adminStatus.textContent = 'Admin Offline';
+            }
+        }
+
+        // Add message to chat
+        function addMessage(text, sender) {
+            // Remove initial notification if it exists
+            const notification = elements.messagesDiv.querySelector('.notification');
+            if (notification && elements.messagesDiv.children.length === 1) {
+                notification.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const time = new Date().toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
             });
 
-            displayMessage({
-                sender: currentUser,
-                content,
-                timestamp: new Date()
-            }, true);
-
-            messageInput.value = '';
-        }
-
-        // Display message in chat
-        function displayMessage(message, isSent) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
-
-            const senderName = isSent ? 'You' : (message.sender?.fullName || 'Unknown');
-            const time = new Date(message.timestamp).toLocaleTimeString();
-
             messageDiv.innerHTML = `
-                <div class="message-header">
-                    <strong>${senderName}</strong> • ${time}
+                <div class="message-bubble">
+                    <div class="message-header">${sender === 'user' ? 'You' : 'Support Agent'}</div>
+                    <div class="message-text">${escapeHtml(text)}</div>
+                    <div class="message-time">${time}</div>
                 </div>
-                <div>${message.content}</div>
             `;
 
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            elements.messagesDiv.appendChild(messageDiv);
+            elements.messagesDiv.scrollTop = elements.messagesDiv.scrollHeight;
         }
 
-        // Handle typing indicator
-   function handleTyping(event) {
-    if (!socket || !currentUser) return;
-
-    socket.emit('typing', {
-        userId: currentUser.id,
-        room: 'general',
-        isTyping: true
-    });
-
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        socket.emit('typing', {
-            userId: currentUser.id,
-            room: 'general',
-            isTyping: false
-        });
-    }, 2000);
-}
-
-        function stopTypingIndicator() {
-            if (socket && currentUser) {
-                socket.send(JSON.stringify({
-                    event: 'typing',
-                    data: {
-                        userId: currentUser.id,
-                        room: 'general',
-                        isTyping: false
-                    }
-                }));
-            }
+        // Add notification
+        function addNotification(text) {
+            const notificationDiv = document.createElement('div');
+            notificationDiv.className = 'notification';
+            notificationDiv.textContent = text;
+            elements.messagesDiv.appendChild(notificationDiv);
+            elements.messagesDiv.scrollTop = elements.messagesDiv.scrollHeight;
         }
 
-        function showTypingIndicator(userId, isTyping) {
-            if (userId === currentUser.id) return;
-
-            if (isTyping) {
-                typingIndicator.textContent = `${getUserName(userId)} is typing...`;
-                typingIndicator.style.display = 'block';
-            } else {
-                typingIndicator.style.display = 'none';
-            }
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
         }
 
-        // Join room
-   function joinRoom() {
-    const room = document.getElementById('roomInput').value.trim();
-    if (!room || !socket) return;
-
-    socket.emit('join_room', room);
-    document.getElementById('roomName').textContent = room;
-    messagesDiv.innerHTML = `<div class="status-update">Joined room: ${room}</div>`;
-}
-
-        // Get messages from REST API
-        async function getMessages() {
-            try {
-                const response = await fetch('http://localhost:5000/api/messages?room=general&limit=50');
-                const data = await response.json();
-
-                if (data.success) {
-                    messagesDiv.innerHTML = '';
-                    data.messages.forEach(message => {
-                        displayMessage(message, message.sender?._id === currentUser?.id);
-                    });
-                    logEvent(`Loaded ${data.messages.length} messages`);
-                }
-            } catch (error) {
-                logEvent(`Error loading messages: ${error.message}`);
-            }
-        }
-
-        // Get users list
-        async function getUsers() {
-            try {
-                const response = await fetch('http://localhost:5000/api/auth/users');
-                const data = await response.json();
-
-                if (data.success) {
-                    usersList.innerHTML = '';
-                    data.users.forEach(user => {
-                        const userDiv = document.createElement('div');
-                        userDiv.className = 'user-item';
-
-                        userDiv.innerHTML = `
-                            <span class="user-name">${user.fullName}</span>
-                            <span class="user-status ${user.isActive ? 'online' : 'offline'}">
-                                ${user.isActive ? 'Online' : 'Offline'}
-                            </span>
-                        `;
-
-                        usersList.appendChild(userDiv);
-                    });
-                    logEvent(`Loaded ${data.count} users`);
-                }
-            } catch (error) {
-                logEvent(`Error loading users: ${error.message}`);
-            }
-        }
-
-        // Clear chat
-        function clearChat() {
-            messagesDiv.innerHTML = '<div class="status-update">Chat cleared</div>';
-            logEvent('Chat cleared');
-        }
-
-        // Add status update
-        function addUserStatusUpdate(message) {
-            const statusDiv = document.createElement('div');
-            statusDiv.className = 'status-update';
-            statusDiv.textContent = message;
-            messagesDiv.appendChild(statusDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-
-        // Helper function to get user name
-        function getUserName(userId) {
-            // In a real app, you'd maintain a users cache
-            return 'User';
+        // Auto-resize textarea
+        function autoResizeTextarea() {
+            elements.messageInput.style.height = 'auto';
+            elements.messageInput.style.height = Math.min(elements.messageInput.scrollHeight, 120) + 'px';
         }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            logEvent('Application started');
-            getUsers();
+            // Enter key to send message
+            elements.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Auto-resize textarea on input
+            elements.messageInput.addEventListener('input', autoResizeTextarea);
+
+            // Enter key on name input to connect
+            elements.userName.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!elements.connectBtn.disabled) {
+                        connect();
+                    }
+                }
+            });
+
+            // Auto-focus on name input
+            elements.userName.focus();
         });
     </script>
 </body>

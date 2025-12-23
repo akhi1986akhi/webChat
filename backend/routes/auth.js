@@ -90,6 +90,21 @@ router.get('/users', async (req, res) => {
   }
 });
 
+router.get("/admin-id",async(req,res)=>{
+    try {
+    const user = await User.findById('694632b0274c2d0becf2c91e').sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+})
+
 // Get user by ID
 router.get('/users/:id', async (req, res) => {
   try {

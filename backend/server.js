@@ -2,243 +2,263 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const mongoose = require('mongoose'); 
-// Load environment variables
-dotenv.config();
 
-// Import models
-const User = require('./models/User');
-const Message = require('./models/Message');
-
-// Import routes
-const authRoutes = require('./routes/auth');
-
-// Initialize express app
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io configuration with CORS
+// Socket.io configuration
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Update this with your frontend URL in production
-    methods: ["GET", "POST"],
-    credentials: true
-  },
-  transports: ['websocket', 'polling'], // Explicitly specify transports
-  pingTimeout: 60000, // Increase timeout
-  pingInterval: 25000
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
 });
-
-// Connect to MongoDB
-connectDB();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/auth', authRoutes);
+// Store active users
+const activeUsers = new Map(); // socket.id -> user data
+let adminSocket = null; // Only one admin for simplicity
 
-// API endpoints for messages
-app.get('/api/messages', async (req, res) => {
-  try {
-    const { room = 'general', limit = 50, skip = 0 } = req.query;
-    
-    const messages = await Message.find({ room })
-      .populate('sender', 'fullName email')
-      .sort({ timestamp: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip));
-    
-    res.json({
-      success: true,
-      messages: messages.reverse(), // Return in chronological order
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching messages',
-    });
-  }
-});
-
-app.get('/api/messages/user/:userId', async (req, res) => {
-  try {
-    const { limit = 50, skip = 0 } = req.query;
-    
-    const messages = await Message.find({ sender: req.params.userId })
-      .populate('sender', 'fullName email')
-      .sort({ timestamp: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip));
-    
-    res.json({
-      success: true,
-      messages,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching user messages',
-    });
-  }
-});
-
-// Health check endpoint
+// API endpoint for health check
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-  });
+  res.json({ status: 'OK', admin: !!adminSocket, users: activeUsers.size });
 });
 
 // Socket.io connection handling
-const activeUsers = new Map();
-// Reset all users to offline when server starts
-async function resetAllUsersToOffline() {
-  try {
-    await User.updateMany(
-      { isActive: true },
-      { 
-        $set: { 
-          isActive: false,
-          socketId: null,
-          lastSeen: new Date() 
-        }
-      }
-    );
-    console.log('All users reset to offline status on server start');
-  } catch (error) {
-    console.error('Error resetting user statuses:', error);
-  }
-}
-
-// Call this when your server starts
-resetAllUsersToOffline();
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-
-  // Handle user registration with socket
-  socket.on('register', async (userData) => {
+  console.log('New connection:', socket.id);
+  // Handle user connection (customer)
+  socket.on('user_connect', (userData) => {
     try {
-        console.log(userData)
-      const { userId } = userData;
+      const { userId, name } = userData;
       
-      if (userId) {
-        // Update user with socket ID
-        await User.findByIdAndUpdate(userId, {
-          socketId: socket.id,
-          lastSeen: new Date(),
-          isActive: true,
-        });
+      // Store user
+      activeUsers.set(socket.id, {
+        userId: userId || socket.id,
+        name: name || `User-${socket.id.substring(0, 5)}`,
+        socketId: socket.id,
+        isAdmin: false
+      });
 
-        // Store user in active users map
-        activeUsers.set(socket.id, userId);
-        
-        // Join default room
-        socket.join('general');
-        
-        // Notify others about new user
-        socket.broadcast.emit('user_online', { userId });
-        
-        console.log(`User ${userId} registered with socket ${socket.id}`);
+      // Join user to their own room
+      socket.join(`user_${socket.id}`);
+
+      // Notify admin about new user
+      if (adminSocket) {
+        io.to(adminSocket).emit('user_connected', {
+          userId: socket.id,
+          name: activeUsers.get(socket.id).name,
+          timestamp: new Date()
+        });
       }
+
+      // Send welcome to user
+      socket.emit('connected', {
+        message: 'Connected to support. An admin will assist you shortly.',
+        userId: socket.id
+      });
+
+       // === ADD THIS: Notify all users that admin is online ===
+      activeUsers.forEach((user, userId) => {
+        if (!user.isAdmin) {
+          io.to(userId).emit('admin_status', { online: true });
+        }
+      });
+      // =======================================================
+
+      console.log(`User connected: ${activeUsers.get(socket.id).name}`);
+
     } catch (error) {
-      console.error('Error in user registration:', error);
+      console.error('User connection error:', error);
     }
   });
 
-  // Handle sending messages
-  socket.on('send_message', async (data) => {
+  // Handle admin connection
+  socket.on('admin_connect', (adminData) => {
     try {
-      const { userId, content, room = 'general', type = 'text' } = data;
+      // Set admin
+      adminSocket = socket.id;
       
-      // Find user
-      const user = await User.findById(userId);
-      
-      if (!user) {
+      // Store admin
+      activeUsers.set(socket.id, {
+        userId: 'admin',
+        name: adminData?.name || 'Admin',
+        socketId: socket.id,
+        isAdmin: true
+      });
+
+      // Get all connected users
+      const users = [];
+      activeUsers.forEach((user, id) => {
+        if (!user.isAdmin) {
+          users.push({
+            userId: id,
+            name: user.name,
+            socketId: id
+          });
+        }
+      });
+
+      // Send connected users to admin
+      socket.emit('admin_connected', {
+        message: 'Admin connected successfully',
+        users: users,
+        totalUsers: users.length
+      });
+
+        // === ADD THIS: Notify all users that admin is online ===
+      activeUsers.forEach((user, userId) => {
+        if (!user.isAdmin) {
+          io.to(userId).emit('admin_status', { online: true });
+        }
+      });
+      // =======================================================
+
+      console.log(`Admin connected: ${socket.id}`);
+
+    } catch (error) {
+      console.error('Admin connection error:', error);
+    }
+  });
+
+  // Handle user sending message to admin
+  socket.on('user_message', (data) => {
+    try {
+      const user = activeUsers.get(socket.id);
+      if (!user || user.isAdmin) return;
+
+      const messageData = {
+        from: user.name,
+        userId: socket.id,
+        message: data.message,
+        timestamp: new Date(),
+        type: 'user'
+      };
+
+      // Send to admin if connected
+      if (adminSocket) {
+        io.to(adminSocket).emit('new_message', messageData);
+      }
+
+      // Also send back to user for confirmation
+      socket.emit('message_sent', { 
+        success: true, 
+        message: data.message 
+      });
+
+      console.log(`User ${user.name}: ${data.message}`);
+
+    } catch (error) {
+      console.error('User message error:', error);
+    }
+  });
+
+  // Handle admin sending message to user
+  socket.on('admin_message', (data) => {
+    try {
+      const admin = activeUsers.get(socket.id);
+      if (!admin || !admin.isAdmin) return;
+
+      const { userId, message } = data;
+
+      // Check if user exists
+      if (!activeUsers.has(userId)) {
         socket.emit('error', { message: 'User not found' });
         return;
       }
 
-      // Create and save message
-      const message = new Message({
-        sender: userId,
-        senderEmail: user.email,
-        content,
-        type,
-        room,
+      const messageData = {
+        from: 'Admin',
+        message: message,
         timestamp: new Date(),
+        type: 'admin'
+      };
+
+      // Send to specific user
+      io.to(userId).emit('admin_reply', messageData);
+
+      // Send confirmation to admin
+      socket.emit('message_delivered', {
+        to: activeUsers.get(userId).name,
+        message: message
       });
 
-      await message.save();
+      console.log(`Admin to ${activeUsers.get(userId).name}: ${message}`);
 
-      // Populate sender info for emitting
-      const messageWithSender = await Message.findById(message._id)
-        .populate('sender', 'fullName email');
-
-      // Emit to room
-      io.to(room).emit('receive_message', {
-        message: messageWithSender,
-        room,
-      });
-
-      console.log(`Message sent by ${user.fullName} in ${room}: ${content}`);
     } catch (error) {
-      console.error('Error sending message:', error);
-      socket.emit('error', { message: 'Failed to send message' });
+      console.error('Admin message error:', error);
     }
   });
 
-  // Handle typing indicator
-  socket.on('typing', (data) => {
-    const { userId, room = 'general', isTyping } = data;
-    socket.to(room).emit('user_typing', { userId, isTyping });
-  });
+  // Handle broadcast from admin to all users
+  socket.on('admin_broadcast', (data) => {
+    try {
+      const admin = activeUsers.get(socket.id);
+      if (!admin || !admin.isAdmin) return;
 
-  // Handle joining rooms
-  socket.on('join_room', (room) => {
-    socket.join(room);
-    console.log(`Socket ${socket.id} joined room: ${room}`);
-  });
+      const messageData = {
+        from: 'Admin',
+        message: data.message,
+        timestamp: new Date(),
+        type: 'broadcast'
+      };
 
-  // Handle leaving rooms
-  socket.on('leave_room', (room) => {
-    socket.leave(room);
-    console.log(`Socket ${socket.id} left room: ${room}`);
+      // Send to all users except admin
+      activeUsers.forEach((user, userId) => {
+        if (!user.isAdmin) {
+          io.to(userId).emit('admin_reply', messageData);
+        }
+      });
+
+      socket.emit('broadcast_sent', {
+        recipients: activeUsers.size - 1,
+        message: data.message
+      });
+
+      console.log(`Admin broadcast to ${activeUsers.size - 1} users: ${data.message}`);
+
+    } catch (error) {
+      console.error('Broadcast error:', error);
+    }
   });
 
   // Handle disconnection
-  socket.on('disconnect', async () => {
-    try {
-      const userId = activeUsers.get(socket.id);
-      
-      if (userId) {
-        // Update user status
-        await User.findByIdAndUpdate(userId, {
-          socketId: null,
-          lastSeen: new Date(),
-          isActive: false,
+  socket.on('disconnect', () => {
+    const user = activeUsers.get(socket.id);
+    
+    if (user) {
+      if (user.isAdmin) {
+        // Admin disconnected
+        adminSocket = null;
+        console.log('Admin disconnected');
+        
+        // Notify all users
+        activeUsers.forEach((userData, userId) => {
+          if (!userData.isAdmin) {
+            io.to(userId).emit('admin_status', { online: false });
+          }
         });
-
-        // Remove from active users
-        activeUsers.delete(socket.id);
+      } else {
+        // User disconnected
+        console.log(`User disconnected: ${user.name}`);
         
-        // Notify others
-        socket.broadcast.emit('user_offline', { userId });
-        
-        console.log(`User ${userId} disconnected`);
+        // Notify admin
+        if (adminSocket) {
+          io.to(adminSocket).emit('user_disconnected', {
+            userId: socket.id,
+            name: user.name
+          });
+        }
       }
-    } catch (error) {
-      console.error('Error handling disconnect:', error);
+      
+      // Remove from active users
+      activeUsers.delete(socket.id);
     }
     
-    console.log('Client disconnected:', socket.id);
+    console.log('Disconnected:', socket.id);
   });
 });
 
@@ -246,5 +266,5 @@ const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`WebSocket server ready for real-time communication`);
+  console.log('Simplified chat server ready');
 });
