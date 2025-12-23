@@ -5,6 +5,14 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
+const User = require('./models/User');
+// Import database connection
+const connectDB = require('./config/db');
+
+
+
+// Connect to MongoDB
+connectDB();
 
 // Socket.io configuration
 const io = socketIo(server, {
@@ -31,14 +39,39 @@ app.get('/health', (req, res) => {
 io.on('connection', (socket) => {
   console.log('New connection:', socket.id);
   // Handle user connection (customer)
-  socket.on('user_connect', (userData) => {
+  socket.on('user_connect', async (userData) => {
     try {
-      const { userId, name } = userData;
-      
+      const { userId, name, email, contact } = userData;
+      console.log("userData", userData);
+      // Check if user already exists by email
+
+      const user = await User.findOne({ email: email });
+      console.log(user);
+
+      if (user) {
+
+        user.socketId = socket.id;
+        await user.save()
+      } else {
+
+        const user = new User({
+          fullName: name || `User-${socket.id.substring(0, 5)}`,
+          email: email.toLowerCase(),
+          contact: contact,
+          socketId: socket.id,
+          isActive: true,
+          isAdmin: false
+        });
+
+        await user.save();
+      }
+
       // Store user
       activeUsers.set(socket.id, {
         userId: userId || socket.id,
         name: name || `User-${socket.id.substring(0, 5)}`,
+        email: email,
+        contact: contact,
         socketId: socket.id,
         isAdmin: false
       });
@@ -61,7 +94,7 @@ io.on('connection', (socket) => {
         userId: socket.id
       });
 
-       // === ADD THIS: Notify all users that admin is online ===
+      // === ADD THIS: Notify all users that admin is online ===
       activeUsers.forEach((user, userId) => {
         if (!user.isAdmin) {
           io.to(userId).emit('admin_status', { online: true });
@@ -81,7 +114,7 @@ io.on('connection', (socket) => {
     try {
       // Set admin
       adminSocket = socket.id;
-      
+
       // Store admin
       activeUsers.set(socket.id, {
         userId: 'admin',
@@ -109,7 +142,7 @@ io.on('connection', (socket) => {
         totalUsers: users.length
       });
 
-        // === ADD THIS: Notify all users that admin is online ===
+      // === ADD THIS: Notify all users that admin is online ===
       activeUsers.forEach((user, userId) => {
         if (!user.isAdmin) {
           io.to(userId).emit('admin_status', { online: true });
@@ -144,9 +177,9 @@ io.on('connection', (socket) => {
       }
 
       // Also send back to user for confirmation
-      socket.emit('message_sent', { 
-        success: true, 
-        message: data.message 
+      socket.emit('message_sent', {
+        success: true,
+        message: data.message
       });
 
       console.log(`User ${user.name}: ${data.message}`);
@@ -228,13 +261,13 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', () => {
     const user = activeUsers.get(socket.id);
-    
+
     if (user) {
       if (user.isAdmin) {
         // Admin disconnected
         adminSocket = null;
         console.log('Admin disconnected');
-        
+
         // Notify all users
         activeUsers.forEach((userData, userId) => {
           if (!userData.isAdmin) {
@@ -244,7 +277,7 @@ io.on('connection', (socket) => {
       } else {
         // User disconnected
         console.log(`User disconnected: ${user.name}`);
-        
+
         // Notify admin
         if (adminSocket) {
           io.to(adminSocket).emit('user_disconnected', {
@@ -253,11 +286,11 @@ io.on('connection', (socket) => {
           });
         }
       }
-      
+
       // Remove from active users
       activeUsers.delete(socket.id);
     }
-    
+
     console.log('Disconnected:', socket.id);
   });
 });

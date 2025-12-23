@@ -41,7 +41,7 @@ const AdminChat: React.FC = () => {
       
       // Register as admin
       socketRef.current?.emit('admin_connect', {
-        name: 'Admin'
+        name: 'John Doe',
       });
     });
 
@@ -59,6 +59,8 @@ const AdminChat: React.FC = () => {
           lastMessage: ''
         })));
       }
+
+      
     });
 
     socketRef.current.on('user_connected', (data) => {
