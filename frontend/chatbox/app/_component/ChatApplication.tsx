@@ -64,33 +64,28 @@ const AdminChat: React.FC = () => {
     });
 
     socketRef.current.on('user_connected', (data) => {
-      console.log('New user connected:', data);
-      
       // Add new user
       setUsers(prev => [...prev, {
         id: data.userId,
         name: data.name,
         isActive: true,
-        socketId: data.userId,
+        socketId: data.socketId,
         unreadCount: 0,
         lastMessage: ''
       }]);
     });
 
     socketRef.current.on('user_disconnected', (data) => {
-      console.log('User disconnected:', data);
-      
       // Update user status
+      console.log(data);
       setUsers(prev => prev.map(user => 
-        user.id === data.userId 
+        user.socketId === data.socketId 
           ? { ...user, isActive: false }
           : user
       ));
     });
 
     socketRef.current.on('new_message', (data) => {
-      console.log('New message from user:', data);
-      
       // Create message
       const newMessage: Message = {
         id: Date.now(),
@@ -166,6 +161,7 @@ const AdminChat: React.FC = () => {
 
     // Send via socket
     socketRef.current.emit('admin_message', {
+      socketId:selectedUser.socketId,
       userId: selectedUser.id,
       message: messageInput
     });
@@ -285,7 +281,7 @@ const AdminChat: React.FC = () => {
           {filteredUsers.length > 0 ? (
             filteredUsers.map((user) => (
               <div
-                key={user.id}
+                key={user.socketId}
                 onClick={() => handleUserSelect(user)}
                 className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
                   selectedUser?.id === user.id ? 'bg-blue-50' : ''

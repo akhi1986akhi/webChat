@@ -618,6 +618,11 @@
 
         function handleDisconnect() {
             updateStatus(false);
+            socket.emit('disconnect', {
+                name: userName,
+                email: userEmail,
+                contact: userContact
+            });
             addNotification('❌ Disconnected from server');
         }
 

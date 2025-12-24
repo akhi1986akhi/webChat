@@ -6,6 +6,7 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 const User = require('./models/User');
+const Message = require('./models/Message');
 // Import database connection
 const connectDB = require('./config/db');
 
@@ -37,21 +38,22 @@ app.get('/health', (req, res) => {
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log('New connection:', socket.id);
   // Handle user connection (customer)
   socket.on('user_connect', async (userData) => {
     try {
-      const { userId, name, email, contact } = userData;
-      console.log("userData", userData);
+      let { userId, name, email, contact } = userData;
       // Check if user already exists by email
 
       const user = await User.findOne({ email: email });
+      if (!userId && user) {
+        userId = user._id;
+      }
       console.log(user);
-
       if (user) {
 
         user.socketId = socket.id;
-        await user.save()
+        user.isActive = true;
+        await user.save();
       } else {
 
         const user = new User({
@@ -63,7 +65,8 @@ io.on('connection', (socket) => {
           isAdmin: false
         });
 
-        await user.save();
+        const resp = await user.save();
+        userId = resp._id;
       }
 
       // Store user
@@ -82,7 +85,8 @@ io.on('connection', (socket) => {
       // Notify admin about new user
       if (adminSocket) {
         io.to(adminSocket).emit('user_connected', {
-          userId: socket.id,
+          userId: userId,
+          socketId:socket.id,
           name: activeUsers.get(socket.id).name,
           timestamp: new Date()
         });
@@ -114,7 +118,6 @@ io.on('connection', (socket) => {
     try {
       // Set admin
       adminSocket = socket.id;
-
       // Store admin
       activeUsers.set(socket.id, {
         userId: 'admin',
@@ -128,7 +131,7 @@ io.on('connection', (socket) => {
       activeUsers.forEach((user, id) => {
         if (!user.isAdmin) {
           users.push({
-            userId: id,
+            userId: user.userId,
             name: user.name,
             socketId: id
           });
@@ -158,14 +161,36 @@ io.on('connection', (socket) => {
   });
 
   // Handle user sending message to admin
-  socket.on('user_message', (data) => {
+  socket.on('user_message', async (data) => {
     try {
       const user = activeUsers.get(socket.id);
       if (!user || user.isAdmin) return;
 
+
+      // Create message in database
+      const message = new Message({
+        conversationId: `user_${user.userId}_admin`,
+        sender: 'user',
+        senderId: user.userId,
+        receiverId: 'admin',
+        senderSocketId: socket.id,
+        receiverSocketId: adminSocket,
+        content: data.message,
+        messageType: 'text',
+        timestamp: new Date(),
+        userInfo: {
+          name: user.name,
+          email: user.email,
+          contact: user.contact
+        }
+      });
+
+      await message.save();
+
       const messageData = {
         from: user.name,
-        userId: socket.id,
+        userId: user.userId,
+        socketId:user.socketId,
         message: data.message,
         timestamp: new Date(),
         type: 'user'
@@ -188,20 +213,36 @@ io.on('connection', (socket) => {
       console.error('User message error:', error);
     }
   });
-
   // Handle admin sending message to user
-  socket.on('admin_message', (data) => {
+  socket.on('admin_message', async (data) => {
     try {
       const admin = activeUsers.get(socket.id);
       if (!admin || !admin.isAdmin) return;
-
-      const { userId, message } = data;
-
+      const { userId, message, socketId } = data;
       // Check if user exists
-      if (!activeUsers.has(userId)) {
+      if (!activeUsers.has(socketId)) {
         socket.emit('error', { message: 'User not found' });
         return;
       }
+
+
+      // Create message in database
+      const newMessage = new Message({
+        conversationId: `user_${socketId}_admin`,
+        sender: 'admin',
+        senderId: 'admin',
+        receiverId: userId,
+        senderSocketId: socket.id,
+        receiverSocketId: socketId,
+        content: message,
+        messageType: 'text',
+        timestamp: new Date(),
+        adminInfo: {
+          name: admin.name
+        }
+      });
+
+      await newMessage.save();
 
       const messageData = {
         from: 'Admin',
@@ -211,7 +252,8 @@ io.on('connection', (socket) => {
       };
 
       // Send to specific user
-      io.to(userId).emit('admin_reply', messageData);
+    
+      io.to(socketId).emit('admin_reply', messageData);
 
       // Send confirmation to admin
       socket.emit('message_delivered', {
@@ -259,7 +301,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle disconnection
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     const user = activeUsers.get(socket.id);
 
     if (user) {
@@ -270,6 +312,7 @@ io.on('connection', (socket) => {
 
         // Notify all users
         activeUsers.forEach((userData, userId) => {
+          console.log(userId)
           if (!userData.isAdmin) {
             io.to(userId).emit('admin_status', { online: false });
           }
@@ -281,17 +324,27 @@ io.on('connection', (socket) => {
         // Notify admin
         if (adminSocket) {
           io.to(adminSocket).emit('user_disconnected', {
-            userId: socket.id,
+            socketId: socket.id,
             name: user.name
           });
         }
+
+
+
       }
 
       // Remove from active users
       activeUsers.delete(socket.id);
     }
-
     console.log('Disconnected:', socket.id);
+    const res = await User.findOne({ socketId: socket.id });
+    if (res) {
+
+      res.isActive = false;
+      await res.save();
+    }
+
+
   });
 });
 
